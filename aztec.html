@@ -85,6 +85,7 @@
 				console.log('ZXing code reader initialized')
 				codeReader.getVideoInputDevices()
 					.then((videoInputDevices) => {
+						console.log(videoInputDevices)
 						const sourceSelect = document.getElementById('sourceSelect')
 						selectedDeviceId = videoInputDevices[0].deviceId
 						if (videoInputDevices.length >= 1) {

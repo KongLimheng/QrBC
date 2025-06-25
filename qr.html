@@ -63,9 +63,17 @@
 			</footer>
 
 		</main>
-
+		<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 		<script src="https://unpkg.com/@zxing/library@latest"></script>
 		<script>
+
+			let el = document.createElement('div');
+			document.body.appendChild(el);
+
+			eruda.init({
+				container: el,
+				tool: ['console', 'elements']
+			});
 			window.addEventListener('load', function () {
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserAztecCodeReader();
