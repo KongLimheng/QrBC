@@ -111,7 +111,7 @@
 
 								const data = parseBCBP(result.text)
 								document.getElementById('result').textContent = result.text;
-								document.getElementById('parse').textContent = JSON.stringify(data);
+								document.getElementById('parse').textContent = JSON.stringify(data, null, 2);
 							}).catch((err) => {
 								console.error(err);
 								document.getElementById('result').textContent = err;
