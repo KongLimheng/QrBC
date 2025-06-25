@@ -101,6 +101,12 @@
 
 						document.getElementById('startButton').addEventListener('click', () => {
 							codeReader.decodeFromInputVideoDevice(selectedDeviceId, 'video').then((result) => {
+								console.log("==============================>")
+								console.log(result)
+								console.log("==============================>")
+								console.log(result.text)
+								console.log("==============================>")
+
 								parseBCBP(result.text)
 								document.getElementById('result').textContent = result.text;
 							}).catch((err) => {
@@ -137,7 +143,6 @@
 						// Wait for image to load before decoding
 						img.onload = () => {
 							codeReader.decodeFromImageElement(img).then(result => {
-								console.log(result)
 								parseBCBP(result.text)
 								document.getElementById('result').textContent = result.text;
 								console.log('Decoded from image:', result);
