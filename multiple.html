@@ -95,6 +95,8 @@
 								if (result) {
 									console.log(result)
 									if (result.format === ZXing.BarcodeFormat.PDF_417) {
+
+										console.log("=================> ZXing.BarcodeFormat.PDF_417")
 										const cleanedData = result.text.replace(/\s/g, '');
 
 										// Call the parser function.
@@ -122,8 +124,8 @@
 										}
 									}
 
-
 									if (result.format === ZXing.BarcodeFormat.AZTEC) {
+										console.log("=================> ZXing.BarcodeFormat.AZTEC")
 										// Call the parser function.
 										const parsedData = parseAZTECBCBP(result.text);
 
