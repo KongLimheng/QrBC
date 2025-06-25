@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>IATA Boarding Pass Scanner</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+		<style>
+			body {
+				font-family: 'Inter', sans-serif;
+			}
+
+			#video {
+				width: 100%;
+				height: auto;
+				border-radius: 0.5rem;
+			}
+
+			.scanner-container {
+				position: relative;
+				overflow: hidden;
+				border-radius: 0.5rem;
+			}
+
+			.scan-box {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 70%;
+				height: 50%;
+				transform: translate(-50%, -50%);
+				border: 2px solid rgba(255, 255, 255, 0.7);
+				box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.5);
+				border-radius: 0.5rem;
+			}
+		</style>
+	</head>
+
+	<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+		<div class="container mx-auto p-4 max-w-2xl bg-white rounded-lg shadow-lg">
+			<h1 class="text-2xl font-bold text-center text-gray-800 mb-4">Boarding Pass Scanner</h1>
+
+			<div id="scanner-container" class="scanner-container mb-4 bg-gray-900">
+				<video id="video" playsinline></video>
+				<div class="scan-box"></div>
+				<canvas id="canvas" class="hidden"></canvas>
+			</div>
+
+			<div class="text-center mb-4 space-y-2">
+				<div>
+					<button id="start-scan"
+						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-48">
+						Start Camera
+					</button>
+					<button id="stop-scan"
+						class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors hidden w-48">
+						Stop Camera
+					</button>
+				</div>
+				<p class="text-gray-500">OR</p>
+				<div>
+					<input type="file" id="image-upload-input" class="hidden" accept="image/*">
+					<label for="image-upload-input"
+						class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors cursor-pointer inline-block w-48">
+						Upload Image
+					</label>
+				</div>
+			</div>
+
+
+			<div id="output" class="p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+				<h2 class="text-xl font-semibold text-gray-700 mb-2">Passenger Information</h2>
+				<div id="passenger-info" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				</div>
+			</div>
+			<div id="error-message" class="p-4 bg-red-100 text-red-700 rounded-lg border border-red-300 hidden mt-4">
+			</div>
+
+		</div>
+
+		<script>
+			const video = document.getElementById('video');
+			const canvasElement = document.getElementById('canvas');
+			const canvas = canvasElement.getContext('2d');
+			const startScanBtn = document.getElementById('start-scan');
+			const stopScanBtn = document.getElementById('stop-scan');
+			const outputContainer = document.getElementById('output');
+			const passengerInfoDiv = document.getElementById('passenger-info');
+			const errorMessageDiv = document.getElementById('error-message');
+			const imageUploadInput = document.getElementById('image-upload-input');
+
+			let stream = null;
+			let animationFrameId = null;
+
+			// Function to start the camera and scanning process
+			async function startScanning() {
+				try {
+					if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+						stream = await navigator.mediaDevices.getUserMedia({
+							video: {
+								facingMode: 'environment' // Prefer back camera
+							}
+						});
+						video.srcObject = stream;
+						video.setAttribute("playsinline", true); // Required for iOS
+						video.play();
+						startScanBtn.classList.add('hidden');
+						stopScanBtn.classList.remove('hidden');
+						errorMessageDiv.classList.add('hidden');
+						outputContainer.classList.add('hidden');
+						animationFrameId = requestAnimationFrame(tick);
+					} else {
+						showError("getUserMedia is not supported by your browser.");
+					}
+				} catch (err) {
+					console.error("Error accessing camera: ", err);
+					showError("Could not access the camera. Please ensure you have given permission.");
+				}
+			}
+
+			// Function to stop the camera
+			function stopScanning() {
+				if (stream) {
+					stream.getTracks().forEach(track => track.stop());
+				}
+				if (animationFrameId) {
+					cancelAnimationFrame(animationFrameId);
+					animationFrameId = null;
+				}
+				video.srcObject = null;
+				startScanBtn.classList.remove('hidden');
+				stopScanBtn.classList.add('hidden');
+			}
+
+			// The main camera scanning loop
+			function tick() {
+				if (video.readyState === video.HAVE_ENOUGH_DATA) {
+					canvasElement.height = video.videoHeight;
+					canvasElement.width = video.videoWidth;
+					canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+					const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+
+					const code = jsQR(imageData.data, imageData.width, imageData.height, {
+						inversionAttempts: "dontInvert",
+					});
+
+					if (code) {
+						stopScanning();
+						parseBCBP(code.data);
+					}
+				}
+				if (animationFrameId) {
+					animationFrameId = requestAnimationFrame(tick);
+				}
+			}
+
+			// ***** NEW: Function to handle image upload *****
+			function handleImageUpload(event) {
+				const file = event.target.files[0];
+				if (!file) {
+					return;
+				}
+
+				// Ensure camera is stopped and UI is reset
+				stopScanning();
+
+				const reader = new FileReader();
+
+				reader.onload = (e) => {
+					const img = new Image();
+					img.onload = () => {
+						// Draw the uploaded image to the canvas
+						canvasElement.width = img.width;
+						canvasElement.height = img.height;
+						canvas.drawImage(img, 0, 0, img.width, img.height);
+						const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+
+						// Try to decode QR code from the canvas
+						const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+						console.log(code, "===>")
+						if (code) {
+							parseBCBP(code.data);
+						} else {
+							showError("No QR code was found in the uploaded image.");
+						}
+					};
+					img.onerror = () => {
+						showError("The selected file could not be loaded as an image.");
+					};
+					img.src = e.target.result;
+				};
+
+				reader.onerror = () => {
+					showError("There was an error reading the selected file.");
+				};
+
+				reader.readAsDataURL(file);
+
+				// Reset input value to allow uploading the same file again
+				event.target.value = '';
+			}
+
+
+			// Function to parse the IATA BCBP data
+			function parseBCBP(data) {
+				outputContainer.classList.remove('hidden');
+				passengerInfoDiv.innerHTML = ''; // Clear previous data
+				errorMessageDiv.classList.add('hidden');
+
+				// Basic check for BCBP format
+				if (!data.startsWith('M1')) {
+					showError("This doesn't seem to be a valid IATA Boarding Pass QR Code. (Missing 'M1' prefix)");
+					return;
+				}
+
+				try {
+					// Extracting information based on a simplified IATA BCBP structure.
+					// NOTE: This is a simplified parser. The full spec is complex.
+					const passengerName = data.substring(2, 22).trim().replace('/', ', ');
+					const pnr = data.substring(22, 29).trim();
+					const fromCity = data.substring(29, 32).trim();
+					const toCity = data.substring(32, 35).trim();
+					const carrier = data.substring(35, 38).trim();
+					const flightNumber = data.substring(38, 43).trim();
+					const julianDate = data.substring(43, 46).trim();
+					const compartment = data.substring(46, 47).trim();
+					const seat = data.substring(47, 51).trim();
+					const sequenceNumber = data.substring(51, 56).trim();
+
+					const info = {
+						"Passenger Name": passengerName,
+						"PNR": pnr,
+						"From": fromCity,
+						"To": toCity,
+						"Flight": `${carrier} ${flightNumber}`,
+						"Julian Date": julianDate,
+						"Seat": seat,
+						"Class": compartment,
+						"Check-in Sequence": sequenceNumber
+					};
+
+					for (const [key, value] of Object.entries(info)) {
+						if (value && value.trim()) { // Only display if data exists
+							const infoItem = document.createElement('div');
+							infoItem.className = 'bg-white p-3 rounded-md shadow-sm break-words';
+							infoItem.innerHTML = `<span class="font-semibold text-gray-600">${key}:</span> <span class="text-gray-800">${value}</span>`;
+							passengerInfoDiv.appendChild(infoItem);
+						}
+					}
+				} catch (err) {
+					console.error("Error parsing BCBP data:", err);
+					showError("Could not parse the boarding pass data. The format might be non-standard.");
+				}
+			}
+
+			// Function to display error messages
+			function showError(message) {
+				errorMessageDiv.textContent = message;
+				errorMessageDiv.classList.remove('hidden');
+				outputContainer.classList.add('hidden');
+			}
+
+			// Event Listeners
+			startScanBtn.addEventListener('click', startScanning);
+			stopScanBtn.addEventListener('click', stopScanning);
+			imageUploadInput.addEventListener('change', handleImageUpload); // New event listener
+
+		</script>
+	</body>
+
+</html>
