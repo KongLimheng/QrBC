@@ -56,8 +56,16 @@
 
 		</main>
 
+		<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 		<script type="text/javascript" src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 		<script type="text/javascript">
+			let el = document.createElement('div');
+			document.body.appendChild(el);
+
+			eruda.init({
+				container: el,
+				tool: ['console', 'elements']
+			});
 			window.addEventListener('load', function () {
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserMultiFormatReader()
