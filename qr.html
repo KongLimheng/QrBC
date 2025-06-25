@@ -137,6 +137,8 @@
 						// Wait for image to load before decoding
 						img.onload = () => {
 							codeReader.decodeFromImageElement(img).then(result => {
+								console.log(result)
+								parseBCBP(result.text)
 								document.getElementById('result').textContent = result.text;
 								console.log('Decoded from image:', result);
 							}).catch(err => {
@@ -150,55 +152,60 @@
 				});
 			});
 
-			// Function to parse the IATA BCBP data
-			function parseBCBP(data) {
-				// Basic check for BCBP format
-				if (!data.startsWith('M1')) {
-					showError("This doesn't seem to be a valid IATA Boarding Pass QR Code. (Missing 'M1' prefix)");
-					return;
-				}
+			/**
+				* Converts a Julian date (day of the year) to a calendar date.
+				* Note: This simple version assumes the flight is in the current year.
+				* @param {number} julianDay - The day of the year (e.g., 177).
+				* @returns {string} The formatted calendar date (e.g., "June 26, 2025").
+				*/
+			function convertJulianDate(julianDay) {
+				const currentYear = new Date().getFullYear(); // Assumes the flight is in the current year.
+				const date = new Date(currentYear, 0); // Start at Jan 1st
+				date.setDate(julianDay); // Set day of the year
 
-				try {
-					// Extracting information based on a simplified IATA BCBP structure.
-					// NOTE: This is a simplified parser. The full spec is complex.
-					const passengerName = data.substring(2, 22).trim().replace('/', ', ');
-					const pnr = data.substring(22, 29).trim();
-					const fromCity = data.substring(29, 32).trim();
-					const toCity = data.substring(32, 35).trim();
-					const carrier = data.substring(35, 38).trim();
-					const flightNumber = data.substring(38, 43).trim();
-					const julianDate = data.substring(43, 46).trim();
-					const compartment = data.substring(46, 47).trim();
-					const seat = data.substring(47, 51).trim();
-					const sequenceNumber = data.substring(51, 56).trim();
-
-					const info = {
-						"Passenger Name": passengerName,
-						"PNR": pnr,
-						"From": fromCity,
-						"To": toCity,
-						"Flight": `${carrier} ${flightNumber}`,
-						"Julian Date": julianDate,
-						"Seat": seat,
-						"Class": compartment,
-						"Check-in Sequence": sequenceNumber
-					};
-
-					console.log(info, "===>")
-
-					for (const [key, value] of Object.entries(info)) {
-						if (value && value.trim()) { // Only display if data exists
-							const infoItem = document.createElement('div');
-							infoItem.className = 'bg-white p-3 rounded-md shadow-sm break-words';
-							infoItem.innerHTML = `<span class="font-semibold text-gray-600">${key}:</span> <span class="text-gray-800">${value}</span>`;
-							passengerInfoDiv.appendChild(infoItem);
-						}
-					}
-				} catch (err) {
-					console.error("Error parsing BCBP data:", err);
-					showError("Could not parse the boarding pass data. The format might be non-standard.");
-				}
+				const options = { year: 'numeric', month: 'long', day: 'numeric' };
+				return date.toLocaleDateString('en-US', options);
 			}
+
+			/**
+			 * Parses the raw string from an IATA Bar Coded Boarding Pass (BCBP).
+			 * @param {string} bcbpString The raw string from the decoded QR code.
+			 * @returns {object} An object containing the parsed flight data.
+			 */
+			function parseBCBP(bcbpString) {
+				// Check for a valid format before trying to parse
+				if (bcbpString.length < 60 || !bcbpString.startsWith('M')) {
+					return { error: "Invalid or unsupported BCBP data format." };
+				}
+
+				const data = {};
+				let offset = 0;
+
+				// Use substring to slice the string at fixed positions defined by the IATA standard
+				data.FormatCode = bcbpString.substring(offset, offset + 1); offset += 1;
+				data.NumberOfLegs = parseInt(bcbpString.substring(offset, offset + 1), 10); offset += 1;
+				data.PassengerName = bcbpString.substring(offset, offset + 20).trim(); offset += 20;
+				data.ElectronicTicket = bcbpString.substring(offset, offset + 1) === 'E' ? 'Yes' : 'No'; offset += 1;
+				data.RecordLocator = bcbpString.substring(offset, offset + 7).trim(); offset += 7;
+				data.FromCity = bcbpString.substring(offset, offset + 3).trim(); offset += 3;
+				data.ToCity = bcbpString.substring(offset, offset + 3).trim(); offset += 3;
+				data.OperatingCarrier = bcbpString.substring(offset, offset + 3).trim(); offset += 3;
+				data.FlightNumber = bcbpString.substring(offset, offset + 5).trim(); offset += 5;
+
+				const julianDate = parseInt(bcbpString.substring(offset, offset + 3).trim(), 10);
+				data.FlightDate_Julian = julianDate;
+				data.FlightDate_Calendar = convertJulianDate(julianDate); // Convert to readable date
+				offset += 3;
+
+				data.CompartmentCode = bcbpString.substring(offset, offset + 1).trim(); offset += 1;
+				data.SeatNumber = bcbpString.substring(offset, offset + 4).trim(); offset += 4;
+				data.CheckInSequence = bcbpString.substring(offset, offset + 5).trim(); offset += 5;
+				data.PassengerStatus = bcbpString.substring(offset, offset + 1).trim(); offset += 1;
+
+				return data;
+			}
+
+
 		</script>
 
 	</body>
