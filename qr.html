@@ -2,61 +2,146 @@
 <html lang="en">
 
 	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>ZXing Multi Barcode Decoder</title>
-		<link rel="stylesheet" href="https://unpkg.com/milligram@1.3.0/dist/milligram.min.css" />
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="author" content="ZXing for JS">
+
+		<title>ZXing TypeScript | Aztec Code from Camera and Image</title>
+
+		<link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+			href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+		<link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+			href="https://unpkg.com/normalize.css@8.0.0/normalize.css">
+		<link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+			href="https://unpkg.com/milligram@1.3.0/dist/milligram.min.css">
 	</head>
 
 	<body>
+
 		<main class="wrapper" style="padding-top:2em">
+
 			<section class="container" id="demo-content">
+				<h1 class="title">Scan Aztec Code (Camera + Image Upload)</h1>
+
 				<div>
-					<input type="file" id="fileInput" accept="image/*" />
-					<a class="button" id="decodeButton">Decode</a>
+					<a class="button" id="startButton">Start Camera</a>
+					<a class="button" id="resetButton">Reset</a>
 				</div>
+
 				<div>
-					<img id="img" src="" style="max-width:100%; border:1px solid gray; margin-top:1em" />
+					<video id="video" width="300" height="200" style="border: 1px solid gray"></video>
 				</div>
+
+				<div id="sourceSelectPanel" style="display:none">
+					<label for="sourceSelect">Change video source:</label>
+					<select id="sourceSelect" style="max-width:400px"></select>
+				</div>
+
+				<hr>
+
+				<div>
+					<label for="imageInput">Upload Image:</label>
+					<input type="file" id="imageInput" accept="image/*" />
+					<img id="uploadedImage" src=""
+						style="display:none; max-width: 300px; border: 1px solid gray; margin-top: 1em;">
+				</div>
+
+				<hr>
+
 				<label>Result:</label>
-				<pre><code id="result"></code></pre>
+				<blockquote>
+					<p id="result"></p>
+				</blockquote>
+
 			</section>
+
+			<footer class="footer">
+				<section class="container">
+					<p>ZXing TypeScript Demo. Licensed under the <a target="_blank"
+							href="https://github.com/zxing-js/library#license" title="MIT">MIT</a>.</p>
+				</section>
+			</footer>
+
 		</main>
 
 		<script src="https://unpkg.com/@zxing/library@latest"></script>
 		<script>
 			window.addEventListener('load', function () {
-				const codeReader = new ZXing.BrowserMultiFormatReader();
-				const fileInput = document.getElementById('fileInput');
-				const decodeButton = document.getElementById('decodeButton');
-				const imgElement = document.getElementById('img');
-				const resultElement = document.getElementById('result');
+				let selectedDeviceId;
+				const codeReader = new ZXing.BrowserAztecCodeReader();
+				console.log('ZXing code reader initialized');
 
-				fileInput.addEventListener('change', () => {
-					const file = fileInput.files[0];
-					if (file) {
-						const reader = new FileReader();
-						reader.onload = e => {
-							imgElement.src = e.target.result;
-						};
-						reader.readAsDataURL(file);
-					}
-				});
+				codeReader.getVideoInputDevices()
+					.then((videoInputDevices) => {
+						const sourceSelect = document.getElementById('sourceSelect');
+						selectedDeviceId = videoInputDevices[0]?.deviceId || '';
 
-				decodeButton.addEventListener('click', () => {
-					resultElement.textContent = 'Decoding...';
-					codeReader.decodeFromImage(imgElement)
-						.then(result => {
-							console.log(result);
-							resultElement.textContent = `Text: ${result.text}\nFormat: ${result.format}`
-						})
-						.catch(err => {
-							console.error(err);
-							resultElement.textContent = 'Error: ' + err;
+						if (videoInputDevices.length >= 1) {
+							videoInputDevices.forEach((element) => {
+								const sourceOption = document.createElement('option');
+								sourceOption.text = element.label;
+								sourceOption.value = element.deviceId;
+								sourceSelect.appendChild(sourceOption);
+							});
+
+							sourceSelect.onchange = () => {
+								selectedDeviceId = sourceSelect.value;
+							};
+
+							document.getElementById('sourceSelectPanel').style.display = 'block';
+						}
+
+						document.getElementById('startButton').addEventListener('click', () => {
+							codeReader.decodeFromInputVideoDevice(selectedDeviceId, 'video').then((result) => {
+								document.getElementById('result').textContent = result.text;
+							}).catch((err) => {
+								console.error(err);
+								document.getElementById('result').textContent = err;
+							});
+							console.log(`Started continuous decode from camera with id ${selectedDeviceId}`);
 						});
+
+						document.getElementById('resetButton').addEventListener('click', () => {
+							codeReader.reset();
+							document.getElementById('result').textContent = '';
+							document.getElementById('uploadedImage').style.display = 'none';
+							document.getElementById('imageInput').value = '';
+							console.log('Reset.');
+						});
+					})
+					.catch((err) => {
+						console.error(err);
+					});
+
+				// Image upload decoder
+				document.getElementById('imageInput').addEventListener('change', (event) => {
+					const file = event.target.files[0];
+					if (!file) return;
+
+					const img = document.getElementById('uploadedImage');
+					const reader = new FileReader();
+
+					reader.onload = () => {
+						img.src = reader.result;
+						img.style.display = 'block';
+
+						// Wait for image to load before decoding
+						img.onload = () => {
+							codeReader.decodeFromImageElement(img).then(result => {
+								document.getElementById('result').textContent = result.text;
+								console.log('Decoded from image:', result);
+							}).catch(err => {
+								document.getElementById('result').textContent = 'Could not decode image: ' + err;
+								console.error(err);
+							});
+						};
+					};
+
+					reader.readAsDataURL(file);
 				});
 			});
 		</script>
+
 	</body>
 
 </html>
