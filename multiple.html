@@ -67,6 +67,7 @@
 				tool: ['console', 'elements']
 			});
 			window.addEventListener('load', function () {
+
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserMultiFormatReader()
 				console.log('ZXing code reader initialized')
@@ -162,10 +163,6 @@
 			* @returns {object|null} An object containing the parsed boarding pass data, or null if the input is invalid.
 			*/
 			function parsePDF417BCBP(bcbpString) {
-				if (!bcbpString || typeof bcbpString !== 'string' || bcbpString.length < 60) {
-					console.error("Invalid or too short BCBP string provided.");
-					return null;
-				}
 
 				try {
 					const data = {
