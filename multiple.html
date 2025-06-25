@@ -237,7 +237,13 @@
 				if (bcbpString.length < 60 || !bcbpString.startsWith('M')) {
 					return { error: "Invalid or unsupported BCBP data format." };
 				}
-
+				const compartmentMap = {
+					'F': 'First Class',
+					'J': 'Business Class',
+					'C': 'Business Class',
+					'Y': 'Economy/Coach Class',
+					'W': 'Premium Economy'
+				};
 				const data = {};
 				let offset = 0;
 
@@ -257,7 +263,7 @@
 				data.FlightDate_Calendar = convertJulianDate(julianDate); // Convert to readable date
 				offset += 3;
 
-				data.CompartmentCode = bcbpString.substring(offset, offset + 1).trim(); offset += 1;
+				data.CompartmentCode = compartmentMap[bcbpString.substring(offset, offset + 1).trim()] || 'Unknown'; offset += 1;
 				data.SeatNumber = bcbpString.substring(offset, offset + 4).trim(); offset += 4;
 				data.CheckInSequence = bcbpString.substring(offset, offset + 5).trim(); offset += 5;
 				data.PassengerStatus = bcbpString.substring(offset, offset + 1).trim(); offset += 1;
