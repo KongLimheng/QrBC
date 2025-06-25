@@ -39,12 +39,12 @@
 
 				<hr>
 
-				<div>
+				<!-- <div>
 					<label for="imageInput">Upload Image:</label>
 					<input type="file" id="imageInput" accept="image/*" />
 					<img id="uploadedImage" src=""
 						style="display:none; max-width: 300px; border: 1px solid gray; margin-top: 1em;">
-				</div>
+				</div> -->
 
 				<hr>
 
@@ -52,15 +52,13 @@
 				<blockquote>
 					<p id="result"></p>
 				</blockquote>
+				<blockquote>
+					<p id="parse"></p>
+				</blockquote>
 
 			</section>
 
-			<footer class="footer">
-				<section class="container">
-					<p>ZXing TypeScript Demo. Licensed under the <a target="_blank"
-							href="https://github.com/zxing-js/library#license" title="MIT">MIT</a>.</p>
-				</section>
-			</footer>
+
 
 		</main>
 		<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -75,6 +73,10 @@
 				tool: ['console', 'elements']
 			});
 			window.addEventListener('load', function () {
+
+				const t = "M1ASKREN/TEST         EA272SL ORDNRTUA 0881 007F002K0303 15C>3180 M6007BUA              2901624760758980 UA UA EY975897            *30600    09  UAG    ^160MEUCIQC1k/QcCEoSFjSivLo3RWiD3268l+OLdrFMTbTyMLRSbAIgb4JVCsWKx/h5HP7+sApYU6nwvM/70IKyUrX28SC+b94=";
+
+				parseBCBP(t)
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserAztecCodeReader();
 				console.log('ZXing code reader initialized');
@@ -107,8 +109,9 @@
 								console.log(result.text)
 								console.log("==============================>")
 
-								parseBCBP(result.text)
+								const data = parseBCBP(result.text)
 								document.getElementById('result').textContent = result.text;
+								document.getElementById('parse').textContent = JSON.stringify(data);
 							}).catch((err) => {
 								console.error(err);
 								document.getElementById('result').textContent = err;
@@ -128,33 +131,7 @@
 						console.error(err);
 					});
 
-				// Image upload decoder
-				document.getElementById('imageInput').addEventListener('change', (event) => {
-					const file = event.target.files[0];
-					if (!file) return;
 
-					const img = document.getElementById('uploadedImage');
-					const reader = new FileReader();
-
-					reader.onload = () => {
-						img.src = reader.result;
-						img.style.display = 'block';
-
-						// Wait for image to load before decoding
-						img.onload = () => {
-							codeReader.decodeFromImageElement(img).then(result => {
-								parseBCBP(result.text)
-								document.getElementById('result').textContent = result.text;
-								console.log('Decoded from image:', result);
-							}).catch(err => {
-								document.getElementById('result').textContent = 'Could not decode image: ' + err;
-								console.error(err);
-							});
-						};
-					};
-
-					reader.readAsDataURL(file);
-				});
 			});
 
 			/**
@@ -206,7 +183,7 @@
 				data.SeatNumber = bcbpString.substring(offset, offset + 4).trim(); offset += 4;
 				data.CheckInSequence = bcbpString.substring(offset, offset + 5).trim(); offset += 5;
 				data.PassengerStatus = bcbpString.substring(offset, offset + 1).trim(); offset += 1;
-
+				console.log(data)
 				return data;
 			}
 
