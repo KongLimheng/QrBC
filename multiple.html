@@ -87,6 +87,9 @@
 									console.log(result)
 									if (result.format === ZXing.BarcodeFormat.PDF_417) {
 										console.log("=================> ZXing.BarcodeFormat.PDF_417")
+										console.log(result.getText(), "getText")
+										console.log(result.text, "====>")
+										console.log("=================> ZXing.BarcodeFormat.PDF_417")
 										// Call the parser function.
 										const parsedData = parsePDF417BCBP(result.text);
 
@@ -143,12 +146,9 @@
 				// Step 1: Clean the raw string by removing all spaces. This is critical for correct indexing.
 				const cleanedString = bcbpString.trim().split(" ");
 
-
-
 				// Add a log to see the exact string being parsed. It should have no spaces.
 				console.log("String length:", bcbpString.length);
 				console.log("split:", cleanedString);
-				console.log("raw:", bcbpString);
 
 				// Step 2: Validate the string length. It must be at least 60 characters.
 				if (bcbpString.length < 60 || !bcbpString.startsWith("M")) {
@@ -158,7 +158,7 @@
 
 				// Step 3: Parse the data using the correct, standard character positions.
 				try {
-					const boardingPassData = "M1TOUCH/YARAVATTY E5XMARV PNHICNKE 0690 129Y048F0121 34D>5180 O5129BKE 2A18023965131220 KE N Q";
+					//"M1TOUCH/YARAVATTY E5XMARV PNHICNKE 0690 129Y048F0121 34D>5180 O5129BKE 2A18023965131220 KE N Q";
 					//['M1TOUCH/YARAVATTY', 'E5XMARV', 'PNHICNKE', '0690', '129Y048F0121', '34D>5180', 'O5129BKE', '2A18023965131220', 'KE', 'N', 'Q']
 					const data = {
 						raw: bcbpString.trim(),
@@ -170,7 +170,7 @@
 							pnrCode: cleanedString[1].trim().substring(2, cleanedString[1].length),
 							fromCityAirportCode: cleanedString[2].substring(0, 3),
 							toCityAirportCode: cleanedString[2].substring(3, 6),
-							operatingCarrierDesignator: cleanedString[2].trim().substring(6, cleanedString[2].length),
+							airLine: cleanedString[2].trim().substring(6, cleanedString[2].length),
 							flightNumber: cleanedString[3].trim(),
 
 							// --- PAY ATTENTION TO THESE LINES ---
@@ -181,7 +181,7 @@
 							compartmentCode: compartmentMap[cleanedString[4].substring(3, 4)],
 
 							// The Seat Number is the 4 characters from position 48 to 52.
-							seatNumber: cleanedString[4].substring(4, 8).trim(),
+							seatNumber: cleanedString[4].substring(4, 8).replace(/\s+/g, ' '),
 
 							// The Check-in sequence is from 52 to 56.
 							checkInSequenceNumber: cleanedString[4].trim().substring(8, cleanedString[4].length),
@@ -190,7 +190,9 @@
 							passengerStatus: cleanedString[5].substring(0, 1),
 							fieldSizeOfVariableData: cleanedString[5].substring(1, 4),
 						},
-						conditional: {},
+						conditional: {
+							documentNumber: cleanedString[7].substring(2, cleanedString[7].length - 1)
+						},
 						security: {}
 					};
 
