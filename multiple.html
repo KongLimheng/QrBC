@@ -132,6 +132,7 @@
 			* @returns {object|null} An object containing the parsed boarding pass data, or null if the input is invalid.
 			*/
 			function parsePDF417BCBP(bcbpString) {
+				bcbpString = bcbpString.replace(/\s+/g, ' ');
 				const compartmentMap = {
 					'F': 'First Class',
 					'J': 'Business Class',
