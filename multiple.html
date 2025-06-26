@@ -91,7 +91,7 @@
 									if (result.format === ZXing.BarcodeFormat.PDF_417) {
 										console.log("=================> ZXing.BarcodeFormat.PDF_417")
 										// Call the parser function.
-										const parsedData = parsePDF417BCBP(cleanedData);
+										const parsedData = parsePDF417BCBP(result.text);
 
 										console.log("--- Parsed BCBP Data (JSON Object) ---");
 										console.log(JSON.stringify(parsedData, null, 2));
