@@ -57,7 +57,16 @@
 				container: el,
 				tool: ['console', 'elements']
 			});
+
+			const compartmentMap = {
+				'F': 'First Class',
+				'J': 'Business Class',
+				'C': 'Business Class',
+				'Y': 'Economy/Coach Class',
+				'W': 'Premium Economy'
+			};
 			window.addEventListener('load', function () {
+
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserMultiFormatReader()
 				console.log('ZXing code reader initialized')
@@ -135,96 +144,103 @@
 			* @returns {object|null} An object containing the parsed boarding pass data, or null if the input is invalid.
 			*/
 			function parsePDF417BCBP(bcbpString) {
-				bcbpString = bcbpString.replace(/\s+/g, ' ');
-				const compartmentMap = {
-					'F': 'First Class',
-					'J': 'Business Class',
-					'C': 'Business Class',
-					'Y': 'Economy/Coach Class',
-					'W': 'Premium Economy'
-				};
-				// Step 1: Clean the raw string by removing all spaces. This is critical for correct indexing.
-				const cleanedString = bcbpString.trim().split(" ");
 
-				// Add a log to see the exact string being parsed. It should have no spaces.
-				console.log("String length:", bcbpString.length);
-				console.log("split:", cleanedString);
 
-				// Step 2: Validate the string length. It must be at least 60 characters.
+				// Step 1: Clean input
+				bcbpString = bcbpString.replace(/\s+/g, ' ').trim();
+				const parts = bcbpString.split(" ");
+
+				console.log("Parsed Length:", bcbpString.length);
+				console.log("Split Parts:", parts);
+
+				// Step 2: Validate format
 				if (bcbpString.length < 60 || !bcbpString.startsWith("M")) {
-					console.error("ERROR: String is too short after cleaning. Check your input data.");
+					console.error("ERROR: Invalid input. Too short or doesn't start with 'M'.");
 					return null;
 				}
 
-				// Step 3: Parse the data using the correct, standard character positions.
 				try {
-					//"M1TOUCH/YARAVATTY E5XMARV PNHICNKE 0690 129Y048F0121 34D>5180 O5129BKE 2A18023965131220 KE N Q";
-					//['M1TOUCH/YARAVATTY', 'E5XMARV', 'PNHICNKE', '0690', '129Y048F0121', '34D>5180', 'O5129BKE', '2A18023965131220', 'KE', 'N', 'Q']
+					const isExtended = parts[0].length > 22;
+
+					const raw = bcbpString;
+					const source = parts;
+
+					const name = isExtended
+						? source[0].slice(2, -7).trim().replace('/', ' ')
+						: source[0].slice(2).trim().replace('/', ' ');
+
+					const pnr = isExtended
+						? source[0].slice(-6)
+						: source[1].slice(2).trim();
+
+					const etIndicator = isExtended
+						? source[0].slice(-7, -6)
+						: source[1].slice(0, 1);
+
+					const fromToAirline = isExtended ? source[1] : source[2];
+					const flightNumber = (isExtended ? source[2] : source[3]).trim();
+					const details = isExtended ? source[3] : source[4];
+
+					const passengerStatus = (isExtended ? source[4] : source[5]).slice(0, 1);
+					const fieldSize = (isExtended ? source[4] : source[5]).slice(1, 4);
+
+					const dateJulian = details.slice(0, 3);
+					const compartment = compartmentMap[details.slice(3, 4)] || "Unknown";
+					const seat = details.slice(4, 8).replace(/^0+/, '');
+					const checkInSeq = details.slice(8).trim();
+
+					const documentSource = isExtended ? source[6] : source[7];
+					const documentNumber = documentSource.slice(2, -1);
+
+
+					const interpretedDate = convertJulianDate(dateJulian)
+
 					const data = {
-						raw: bcbpString.trim(),
+						raw,
 						mandatory: {
-							formatCode: cleanedString[0].substring(0, 1),
-							numberOfLegs: parseInt(cleanedString[0].substring(1, 2)),
-							passengerName: cleanedString[0].substring(2, cleanedString[0].length).trim().replace('/', ' '),
-							electronicTicketIndicator: cleanedString[1].substring(0, 1),
-							pnrCode: cleanedString[1].trim().substring(2, cleanedString[1].length),
-							fromCityAirportCode: cleanedString[2].substring(0, 3),
-							toCityAirportCode: cleanedString[2].substring(3, 6),
-							airLine: cleanedString[2].trim().substring(6, cleanedString[2].length),
-							flightNumber: cleanedString[3].trim(),
-
-							// --- PAY ATTENTION TO THESE LINES ---
-							// The Julian Date is from character 44 up to (but not including) 47.
-							dateOfFlight_Julian: cleanedString[4].substring(0, 3),
-
-							// The Compartment Code is the single character at position 47.
-							compartmentCode: compartmentMap[cleanedString[4].substring(3, 4)],
-
-							// The Seat Number is the 4 characters from position 48 to 52.
-							seatNumber: cleanedString[4].substring(4, 8).replace(/\s+/g, ' '),
-
-							// The Check-in sequence is from 52 to 56.
-							checkInSequenceNumber: cleanedString[4].trim().substring(8, cleanedString[4].length),
-							// --- END OF ATTENTION AREA ---
-
-							passengerStatus: cleanedString[5].substring(0, 1),
-							fieldSizeOfVariableData: cleanedString[5].substring(1, 4),
+							formatCode: source[0].slice(0, 1),
+							numberOfLegs: parseInt(source[0].slice(1, 2)),
+							passengerName: name,
+							electronicTicketIndicator: etIndicator,
+							pnrCode: pnr,
+							fromCityAirportCode: fromToAirline.slice(0, 3),
+							toCityAirportCode: fromToAirline.slice(3, 6),
+							airLine: fromToAirline.slice(6).trim(),
+							flightNumber,
+							dateOfFlight_Julian: dateJulian,
+							compartmentCode: compartment,
+							seatNumber: seat,
+							checkInSequenceNumber: checkInSeq,
+							passengerStatus,
+							fieldSizeOfVariableData: fieldSize,
+							interpretedDate
 						},
 						conditional: {
-							documentNumber: cleanedString[7].substring(2, cleanedString[7].length - 1)
-						},
-						security: {}
+							documentNumber
+						}
 					};
 
-					// Add interpreted, human-readable data
-					const dayOfYear = parseInt(data.mandatory.dateOfFlight_Julian, 10);
-					const year = new Date().getFullYear();
-					const date = new Date(year, 0); // Start at Jan 1st
-					data.mandatory.interpretedDate = new Date(date.setDate(dayOfYear)).toDateString();
-
-					// Continue parsing conditional data if it exists
-
-					console.log(data)
+					console.log(data);
 					return data;
 
 				} catch (error) {
-					console.error("An unexpected error occurred during parsing:", error);
+					console.error("Parsing Error:", error);
 					return null;
 				}
 			}
 
 
 			/**
-	 * Converts a Julian date (day of the year) to a Gregorian Date object.
-	 * Assumes the current year. For flights booked far in advance, this might need adjustment.
-	 * @param {string} julianDateStr - The day of the year as a string (e.g., "129").
-	 * @returns {Date} The calculated Date object.
-	 */
+			* Converts a Julian date (day of the year) to a Gregorian Date object.
+			* Assumes the current year. For flights booked far in advance, this might need adjustment.
+			* @param {string} julianDateStr - The day of the year as a string (e.g., "129").
+			* @returns {Date} The calculated Date object.
+			*/
 			function convertJulianDate(julianDateStr) {
 				const dayOfYear = parseInt(julianDateStr, 10);
 				const year = new Date().getFullYear(); // Assumes the flight is in the current year.
 				const date = new Date(year, 0); // Start at Jan 1st
-				return new Date(date.setDate(dayOfYear));
+				return new Date(date.setDate(dayOfYear)).toDateString();
 			}
 
 			/**
@@ -237,13 +253,7 @@
 				if (bcbpString.length < 60 || !bcbpString.startsWith('M')) {
 					return { error: "Invalid or unsupported BCBP data format." };
 				}
-				const compartmentMap = {
-					'F': 'First Class',
-					'J': 'Business Class',
-					'C': 'Business Class',
-					'Y': 'Economy/Coach Class',
-					'W': 'Premium Economy'
-				};
+
 				const data = {};
 				let offset = 0;
 
