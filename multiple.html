@@ -58,9 +58,6 @@
 				tool: ['console', 'elements']
 			});
 			window.addEventListener('load', function () {
-				const boardingPassData = "M1TOUCH/YARAVATTY E5XMARV PNHICNKE 0690 129Y048F0121 34D>5180 O5129BKE 2A18023965131220 KE N Q";
-
-				parsePDF417BCBP(boardingPassData)
 				let selectedDeviceId;
 				const codeReader = new ZXing.BrowserMultiFormatReader()
 				console.log('ZXing code reader initialized')
@@ -145,9 +142,11 @@
 				// Step 1: Clean the raw string by removing all spaces. This is critical for correct indexing.
 				const cleanedString = bcbpString.trim().split(" ");
 
+
+
 				// Add a log to see the exact string being parsed. It should have no spaces.
 				console.log("String length:", bcbpString.length);
-
+				console.log("split:", cleanedString);
 
 				// Step 2: Validate the string length. It must be at least 60 characters.
 				if (bcbpString.length < 60 || !bcbpString.startsWith("M")) {
